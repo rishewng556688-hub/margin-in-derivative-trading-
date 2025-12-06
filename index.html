@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>支付资金保证金</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f2f5; }
+.container { max-width:750px; margin:30px auto; background:#fff; padding:30px; border-radius:15px; box-shadow:0 6px 20px rgba(0,0,0,0.1); position: relative; }
+h2 { text-align:center; margin-bottom:20px; color:#004aad; }
+label { display:block; margin-bottom:6px; font-weight:bold; }
+input, select { width:100%; padding:10px 12px; margin-bottom:15px; font-size:16px; border:1px solid #ccc; border-radius:8px; transition:0.2s; }
+input:focus, select:focus { border-color:#004aad; outline:none; box-shadow:0 0 5px rgba(0,74,173,0.3); }
+.row { display:flex; gap:20px; flex-wrap:wrap; }
+.row > div { flex:1; min-width:200px; }
+.submit-btn { width:100%; padding:14px; font-size:18px; background:#004aad; color:#fff; border:none; border-radius:10px; cursor:pointer; transition:0.2s; }
+.submit-btn:hover { background:#00337a; }
+.submit-btn:disabled { background:#9ab8e6; cursor:not-allowed; }
+.page { display:none; }
+.page.active { display:block; }
+.process-box { margin-top:20px; padding:15px; background:#eef5ff; border-left:4px solid #004aad; border-radius:6px; }
+.status { font-weight:bold; color:#004aad; margin-bottom:10px; }
+.terms-list { margin-top:15px; padding-left:20px; position:relative; z-index:1; }
+.terms-list li { margin-bottom:5px; }
+.button-row { display:flex; gap:15px; margin-top:20px; }
+.button-row button { flex:1; }
+.progress-container { width:100%; height:20px; background:#eee; border-radius:10px; margin-top:10px; overflow:hidden; }
+.progress-bar { width:0; height:100%; border-radius:10px; transition:width 1s, background 0.5s; }
+
+/* 公章样式 */
+.terms-wrapper { position: relative; }
+#stampImg { width:300px; height:300px; position:absolute; bottom:0; left:50%; transform:translateX(-50%) rotate(30deg); display:none; z-index:0; opacity:0.5; pointer-events:none; }
+</style>
+</head>
+<body>
+
+<!-- 页面1：填写表单 -->
+<div class="container page active" id="pageForm">
+  <h2 id="titleText"></h2>
+  <label id="langLabel"></label>
+  <select id="languageSelect">
+    <option value="zh">中文 (CNY ¥)</option>
+    <option value="en">English (USD $)</option>
+    <option value="br">Português (BRL R$)</option>
+    <option value="cl">Español (CLP $)</option>
+  </select>
+
+  <p id="shortDesc" style="color:#555; margin-bottom:20px;"></p>
+
+  <div class="row">
+    <div>
+      <label id="nameLabel"></label>
+      <input id="nameInput" required />
+    </div>
+    <div>
+      <label id="uidLabel"></label>
+      <input id="uidInput" required />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label id="phoneLabel"></label>
+      <input id="phoneInput" required />
+    </div>
+    <div>
+      <label id="depositLabel"></label>
+      <input id="depositInput" type="number" min="0" step="0.01" placeholder="请输入数字" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label id="startDateLabel"></label>
+      <input type="date" id="startDate" required />
+    </div>
+    <div>
+      <label id="endDateLabel"></label>
+      <input type="date" id="endDate" required />
+    </div>
+  </div>
+
+  <ul class="terms-list" id="termsList"></ul>
+
+  <button class="submit-btn" id="submitBtn"></button>
+</div>
+
+<!-- 页面2：保证金信息 -->
+<div class="container page" id="pageNext">
+  <h2 id="nextTitle"></h2>
+  <p id="nextShortDesc" style="color:#555; margin-bottom:10px;"></p>
+  <p id="infoText"></p>
+
+  <div class="terms-wrapper">
+    <ul class="terms-list" id="nextTermsList"></ul>
+    <img id="stampImg" src="seal.png" alt="公司公章" />
+  </div>
+
+  <div class="process-box">
+    <div class="status" id="statusText"></div>
+    <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+    <div id="processDetail"></div>
+  </div>
+
+  <div class="button-row">
+    <button class="submit-btn" id="backBtn" style="background:#28a745;"></button>
+    <button class="submit-btn" id="pdfBtn"></button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// 多语言文本
+const langTexts = {
+  zh:{ title:'填写信息', lang:'语言', name:'姓名', uid:'UID', phone:'手机号',
+    start:'开始日期', end:'截止日期', deposit:'保证金金额', submit:'提交', currency:'CNY',
+    nextTitle:'保证金信息', processSteps:['正在处理您的信用评估...','系统正在验证您的交易记录...','正在确认支付银行安全等级...','信用评估完成：可进行保证金支付'],
+    processDetail:'请稍候，我们正在为您检测支付安全等级。', back:'返回首页并编辑', pdf:'生成 PDF / 打印', alert:'请完整填写必填字段',
+    shortDesc:'保证金金额需按照合同规定缴纳，系统会对金额进行验证。',
+    terms:['保证金性质：保证乙方履行财务及退款义务，保障甲方利益','使用范围：用于履行退款、弥补财务差异、用户损失等','补足机制：若保证金被使用，乙方需在指定期限补足','返还机制：合作结束且无未结事项，全部保证金无息返还','法律适用与争议解决：适用VIP会员所在国家法律，争议先协商，不成提交仲裁']
+  },
+  en:{ title:'Fill Information', lang:'Language', name:'Name', uid:'UID', phone:'Phone',
+    start:'Start Date', end:'End Date', deposit:'Deposit Amount', submit:'Submit', currency:'USD',
+    nextTitle:'Deposit Information', processSteps:['Processing credit evaluation...','Verifying transaction records...','Confirming bank security level...','Credit evaluation complete: ready for deposit'],
+    processDetail:'Please wait, we are checking your payment security level.', back:'Back to form', pdf:'Generate PDF / Print', alert:'Please complete all required fields',
+    shortDesc:'Deposit amount must comply with the contract. System will validate the amount.',
+    terms:['Nature of the deposit: Ensures Party B fulfills financial and refund obligations, protecting Party A','Scope of use: Used for refunds, covering financial discrepancies, user losses, etc.','Replenishment mechanism: If deposit is used, Party B must replenish it within the specified timeframe','Return mechanism: Remaining deposit returned without interest when cooperation ends','Governing law and dispute resolution: Governed by the laws of the country where the VIP member resides; disputes are first negotiated, then submitted to arbitration']
+  },
+  br:{ title:'Preencher informações', lang:'Idioma', name:'Nome', uid:'UID', phone:'Telefone',
+    start:'Data inicial', end:'Data final', deposit:'Valor do Depósito', submit:'Enviar', currency:'BRL',
+    nextTitle:'Informações de Depósito', processSteps:['Processando avaliação de crédito...','Verificando histórico de transações...','Confirmando segurança do banco...','Avaliação de crédito concluída: pronto para depósito'],
+    processDetail:'Aguarde, estamos verificando a segurança do pagamento.', back:'Voltar ao formulário', pdf:'Gerar PDF / Imprimir', alert:'Por favor, preencha todos os campos obrigatórios',
+    shortDesc:'O valor do depósito deve estar de acordo com o contrato. O sistema irá validar o valor.',
+    terms:['Natureza do depósito: Garante que a Parte B cumpra obrigações financeiras e de reembolso','Escopo de uso: Usado para reembolsos, cobrir diferenças financeiras, perdas de usuários etc.','Mecanismo de reposição: Se usado, Parte B deve repor dentro do prazo especificado','Mecanismo de devolução: Valor restante devolvido sem juros após término da cooperação','Lei aplicável e resolução de conflitos: Regido pelas leis do país onde o membro VIP reside; disputas são primeiro negociadas e depois submetidas à arbitragem']
+  },
+  cl:{ title:'Completar información', lang:'Idioma', name:'Nombre', uid:'UID', phone:'Teléfono',
+    start:'Fecha inicio', end:'Fecha término', deposit:'Monto del Depósito', submit:'Enviar', currency:'CLP',
+    nextTitle:'Información de Depósito', processSteps:['Procesando evaluación de crédito...','Verificando registros de transacción...','Confirmando nivel de seguridad del banco...','Evaluación de crédito completa: listo para depósito'],
+    processDetail:'Espere, estamos verificando la seguridad de su pago.', back:'Volver al formulario', pdf:'Generar PDF / Imprimir', alert:'Por favor complete todos los campos obligatorios',
+    shortDesc:'El monto del depósito debe cumplir con el contrato. El sistema validará el monto.',
+    terms:['Naturaleza del depósito: Asegura que la Parte B cumpla obligaciones financieras y de reembolso','Uso: Para reembolsos, cubrir diferencias financieras, pérdidas de usuarios, etc.','Mecanismo de reposición: Si se utiliza, La Parte B debe reponer en el plazo indicado','Mecanismo de devolución: El depósito restante se devuelve sin intereses al finalizar la cooperación','Ley aplicable y resolución de controversias: Regido por las leyes del país donde reside el miembro VIP; las disputas se negocian primero y luego se someten a arbitraje']
+  }
+};
+
+const elements={
+  titleText:document.getElementById('titleText'), langLabel:document.getElementById('langLabel'),
+  nameLabel:document.getElementById('nameLabel'), uidLabel:document.getElementById('uidLabel'),
+  phoneLabel:document.getElementById('phoneLabel'), startDateLabel:document.getElementById('startDateLabel'),
+  endDateLabel:document.getElementById('endDateLabel'), depositLabel:document.getElementById('depositLabel'),
+  submitBtn:document.getElementById('submitBtn'), languageSelect:document.getElementById('languageSelect'),
+  nameInput:document.getElementById('nameInput'), uidInput:document.getElementById('uidInput'),
+  phoneInput:document.getElementById('phoneInput'), startDate:document.getElementById('startDate'),
+  endDate:document.getElementById('endDate'), depositInput:document.getElementById('depositInput'),
+  pageForm:document.getElementById('pageForm'), pageNext:document.getElementById('pageNext'),
+  nextTitle:document.getElementById('nextTitle'), nextShortDesc:document.getElementById('nextShortDesc'),
+  infoText:document.getElementById('infoText'), termsList:document.getElementById('termsList'),
+  nextTermsList:document.getElementById('nextTermsList'), statusText:document.getElementById('statusText'),
+  processDetail:document.getElementById('processDetail'), backBtn:document.getElementById('backBtn'),
+  pdfBtn:document.getElementById('pdfBtn'), shortDesc:document.getElementById('shortDesc'),
+  progressBar:document.getElementById('progressBar'), stampImg:document.getElementById('stampImg')
+};
+
+const stepColors = ['#004aad','#f39c12','#8e44ad','#28a745'];
+
+// 格式化金额
+function formatCurrency(amount, lang){
+    const currencyMap = { zh:'CNY', en:'USD', br:'BRL', cl:'CLP' };
+    const localeMap = { zh:'zh-CN', en:'en-US', br:'pt-BR', cl:'es-CL' };
+    const currency = currencyMap[lang] || 'USD';
+    const locale = localeMap[lang] || 'en-US';
+    const formattedNumber = new Intl.NumberFormat(locale, { minimumFractionDigits:2, maximumFractionDigits:2 }).format(amount);
+    return `${currency} ${formattedNumber}`;
+}
+
+function applyLang(lang){
+  const t = langTexts[lang];
+  elements.titleText.textContent = t.title;
+  elements.langLabel.textContent = t.lang;
+  elements.nameLabel.textContent = t.name;
+  elements.uidLabel.textContent = t.uid;
+  elements.phoneLabel.textContent = t.phone;
+  elements.startDateLabel.textContent = t.start;
+  elements.endDateLabel.textContent = t.end;
+  elements.depositLabel.textContent = t.deposit + ' (' + t.currency + ')';
+  elements.submitBtn.textContent = t.submit;
+  elements.shortDesc.textContent = t.shortDesc;
+
+  elements.termsList.innerHTML='';
+  t.terms.forEach(term=>{
+    const li=document.createElement('li');
+    li.textContent=term;
+    elements.termsList.appendChild(li);
+  });
+
+  elements.nextTitle.textContent = t.nextTitle;
+  elements.nextShortDesc.textContent = t.shortDesc;
+  elements.backBtn.textContent = t.back;
+  elements.pdfBtn.textContent = t.pdf;
+}
+elements.languageSelect.addEventListener('change', e=>{
+    applyLang(e.target.value);
+    if(localStorage.getItem('depositForm')){
+        const data = JSON.parse(localStorage.getItem('depositForm'));
+        data.lang = e.target.value;
+        displayNextPage(data);
+    }
+});
+applyLang('zh');
+
+// 提交表单
+elements.submitBtn.addEventListener('click', ()=>{
+  const t = langTexts[elements.languageSelect.value];
+  if(!elements.nameInput.value||!elements.uidInput.value||!elements.phoneInput.value||!elements.startDate.value||!elements.endDate.value){
+    alert(t.alert); return;
+  }
+  if(!elements.depositInput.value || isNaN(elements.depositInput.value) || Number(elements.depositInput.value)<=0){
+    alert(t.alert + '（保证金金额需大于0）'); return;
+  }
+  const start=new Date(elements.startDate.value);
+  const end=new Date(elements.endDate.value);
+  if(start > end){ alert('开始日期不能晚于截止日期'); return; }
+
+  const data={ name:elements.nameInput.value, uid:elements.uidInput.value, phone:elements.phoneInput.value,
+    start:elements.startDate.value, end:elements.endDate.value, amount:elements.depositInput.value,
+    lang:elements.languageSelect.value
+  };
+  localStorage.setItem('depositForm', JSON.stringify(data));
+  elements.pageForm.classList.remove('active');
+  elements.pageNext.classList.add('active');
+  displayNextPage(data);
+});
+
+// 第二页显示信息
+function displayNextPage(data){
+    const t = langTexts[data.lang];
+    elements.infoText.innerHTML = 
+        `<strong>${t.name}:</strong> ${data.name}<br>
+         <strong>${t.uid}:</strong> ${data.uid}<br>
+         <strong>${t.phone}:</strong> ${data.phone}<br>
+         <strong>${t.start}:</strong> ${data.start}<br>
+         <strong>${t.end}:</strong> ${data.end}<br>
+         <strong>${t.deposit}:</strong> ${formatCurrency(Number(data.amount), data.lang)}`;
+
+    elements.nextTermsList.innerHTML='';
+    t.terms.forEach(term=>{
+        const li=document.createElement('li');
+        li.textContent = term;
+        elements.nextTermsList.appendChild(li);
+    });
+
+    elements.stampImg.style.display = 'block';
+
+    let step=0;
+    const steps=t.processSteps;
+    elements.statusText.textContent = steps[0];
+    elements.processDetail.textContent = t.processDetail;
+    elements.progressBar.style.width='0';
+    elements.progressBar.style.background = stepColors[0];
+    const interval=setInterval(()=>{
+        if(step>=steps.length){ clearInterval(interval); return; }
+        elements.statusText.textContent = steps[step];
+        elements.progressBar.style.width=((step+1)/steps.length*100)+'%';
+        elements.progressBar.style.background = stepColors[step];
+        step++;
+    },2000);
+}
+
+// 返回首页
+elements.backBtn.addEventListener('click', ()=>{
+  elements.pageNext.classList.remove('active');
+  elements.pageForm.classList.add('active');
+  if(localStorage.getItem('depositForm')){
+    const data=JSON.parse(localStorage.getItem('depositForm'));
+    elements.nameInput.value=data.name;
+    elements.uidInput.value=data.uid;
+    elements.phoneInput.value=data.phone;
+    elements.startDate.value=data.start;
+    elements.endDate.value=data.end;
+    elements.depositInput.value=data.amount;
+    elements.languageSelect.value=data.lang;
+    applyLang(data.lang);
+  }
+});
+
+// PDF 下载/打印
+elements.pdfBtn.addEventListener('click', ()=>{
+  elements.backBtn.style.display='none';
+  elements.pdfBtn.style.display='none';
+  html2canvas(elements.pageNext).then(canvas=>{
+    const link=document.createElement('a');
+    link.download='CPT_MARKETS_保证金.png';
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+    window.print();
+    elements.backBtn.style.display='inline-block';
+    elements.pdfBtn.style.display='inline-block';
+  });
+});
+
+// 自动恢复
+window.addEventListener('load', ()=>{
+  if(localStorage.getItem('depositForm')){
+    const data=JSON.parse(localStorage.getItem('depositForm'));
+    elements.nameInput.value=data.name;
+    elements.uidInput.value=data.uid;
+    elements.phoneInput.value=data.phone;
+    elements.startDate.value=data.start;
+    elements.endDate.value=data.end;
+    elements.depositInput.value=data.amount;
+    elements.languageSelect.value=data.lang;
+    applyLang(data.lang);
+  }
+});
+</script>
+</body>
+</html>
