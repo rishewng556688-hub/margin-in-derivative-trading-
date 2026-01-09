@@ -200,10 +200,13 @@ function formatCurrency(amount, lang){
   const localeMap = { zh:'zh-CN', en:'en-US', br:'pt-BR', cl:'es-CL' };
   const currency = currencyMap[lang] || 'USD';
   const locale = localeMap[lang] || 'en-US';
-  const formattedNumber = new Intl.NumberFormat(locale, { minimumFractionDigits:2, maximumFractionDigits:2 }).format(amount);
+  const formattedNumber = new Intl.NumberFormat(locale, {
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  }).format(amount);
   return `${currency} ${formattedNumber}`;
 }
-
+  
 // 语言切换
 function applyLang(lang){
   const t = langTexts[lang];
@@ -384,3 +387,4 @@ window.addEventListener('load', ()=>{
 </script>
 </body>
 </html>
+
