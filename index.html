@@ -30,6 +30,7 @@ input:focus, select:focus { border-color:#004aad; outline:none; box-shadow:0 0 5
 /* 公章样式 */
 .terms-wrapper { position: relative; }
 #stampImg { width:300px; height:300px; position:absolute; bottom:0; left:50%; transform:translateX(-50%) rotate(30deg); display:none; z-index:0; opacity:0.5; pointer-events:none; }
+.info-box { margin-top:15px; background:#f9f9f9; padding:10px; border-radius:8px; }
 </style>
 </head>
 <body>
@@ -64,20 +65,39 @@ input:focus, select:focus { border-color:#004aad; outline:none; box-shadow:0 0 5
       <input id="phoneInput" required />
     </div>
     <div>
-      <label id="depositLabel"></label>
-      <input id="depositInput" type="number" min="0" step="0.01" placeholder="请输入数字" />
+      <label id="withdrawLabel"></label>
+      <input id="withdrawInput" type="number" min="0" step="0.01" placeholder="请输入数字" />
     </div>
   </div>
 
   <div class="row">
     <div>
+      <label id="percentLabel"></label>
+      <input id="percentInput" type="number" min="0" max="100" step="1" value="30" /> %
+    </div>
+    <div>
+      <label id="depositLabel"></label>
+      <input id="depositInput" type="number" readonly placeholder="自动计算" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label id="totalLabel"></label>
+      <input id="totalInput" type="number" readonly placeholder="自动计算" />
+    </div>
+    <div>
       <label id="startDateLabel"></label>
       <input type="date" id="startDate" required />
     </div>
+  </div>
+
+  <div class="row">
     <div>
       <label id="endDateLabel"></label>
       <input type="date" id="endDate" required />
     </div>
+    <div></div>
   </div>
 
   <ul class="terms-list" id="termsList"></ul>
@@ -89,7 +109,8 @@ input:focus, select:focus { border-color:#004aad; outline:none; box-shadow:0 0 5
 <div class="container page" id="pageNext">
   <h2 id="nextTitle"></h2>
   <p id="nextShortDesc" style="color:#555; margin-bottom:10px;"></p>
-  <p id="infoText"></p>
+
+  <div class="info-box" id="infoText"></div>
 
   <div class="terms-wrapper">
     <ul class="terms-list" id="nextTermsList"></ul>
@@ -112,32 +133,48 @@ input:focus, select:focus { border-color:#004aad; outline:none; box-shadow:0 0 5
 <script>
 // 多语言文本
 const langTexts = {
-  zh:{ title:'填写信息', lang:'语言', name:'姓名', uid:'UID', phone:'手机号',
-    start:'开始日期', end:'截止日期', deposit:'保证金金额', submit:'提交', currency:'CNY',
+  zh:{ 
+    title:'填写信息', lang:'语言', name:'姓名', uid:'UID', phone:'手机号',
+    withdraw:'待提款金额', percent:'保证金百分比', deposit:'保证金金额', total:'总提款金额',
+    start:'开始日期', end:'截止日期', submit:'提交', currency:'CNY',
     nextTitle:'保证金信息', processSteps:['正在处理您的信用评估...','系统正在验证您的交易记录...','正在确认支付银行安全等级...','信用评估完成：可进行保证金支付'],
-    processDetail:'请稍候，我们正在为您检测支付安全等级。', back:'返回首页并编辑', pdf:'生成 PDF / 打印', alert:'请完整填写必填字段',
+    processDetail:'请稍候，我们正在为您检测支付安全等级。',
+    back:'返回首页并编辑', pdf:'生成 PDF / 打印', alert:'请完整填写必填字段',
     shortDesc:'保证金金额需按照合同规定缴纳，系统会对金额进行验证。',
+    depositNotice: '保证金按待提款金额的 {percent}% 收取，用于风控与通道审核',
     terms:['保证金性质：保证乙方履行财务及退款义务，保障甲方利益','使用范围：用于履行退款、弥补财务差异、用户损失等','补足机制：若保证金被使用，乙方需在指定期限补足','返还机制：合作结束且无未结事项，全部保证金无息返还','法律适用与争议解决：适用VIP会员所在国家法律，争议先协商，不成提交仲裁']
   },
-  en:{ title:'Fill Information', lang:'Language', name:'Name', uid:'UID', phone:'Phone',
-    start:'Start Date', end:'End Date', deposit:'Deposit Amount', submit:'Submit', currency:'USD',
+  en:{ 
+    title:'Fill Information', lang:'Language', name:'Name', uid:'UID', phone:'Phone',
+    withdraw:'Pending Withdrawal', percent:'Deposit Percent', deposit:'Deposit Amount', total:'Total Withdrawal',
+    start:'Start Date', end:'End Date', submit:'Submit', currency:'USD',
     nextTitle:'Deposit Information', processSteps:['Processing credit evaluation...','Verifying transaction records...','Confirming bank security level...','Credit evaluation complete: ready for deposit'],
-    processDetail:'Please wait, we are checking your payment security level.', back:'Back to form', pdf:'Generate PDF / Print', alert:'Please complete all required fields',
+    processDetail:'Please wait, we are checking your payment security level.',
+    back:'Back to form', pdf:'Generate PDF / Print', alert:'Please complete all required fields',
     shortDesc:'Deposit amount must comply with the contract. System will validate the amount.',
+    depositNotice: 'Deposit is charged at {percent}% of the pending withdrawal amount for risk control and channel review',
     terms:['Nature of the deposit: Ensures Party B fulfills financial and refund obligations, protecting Party A','Scope of use: Used for refunds, covering financial discrepancies, user losses, etc.','Replenishment mechanism: If deposit is used, Party B must replenish it within the specified timeframe','Return mechanism: Remaining deposit returned without interest when cooperation ends','Governing law and dispute resolution: Governed by the laws of the country where the VIP member resides; disputes are first negotiated, then submitted to arbitration']
   },
-  br:{ title:'Preencher informações', lang:'Idioma', name:'Nome', uid:'UID', phone:'Telefone',
-    start:'Data inicial', end:'Data final', deposit:'Valor do Depósito', submit:'Enviar', currency:'BRL',
+  br:{ 
+    title:'Preencher informações', lang:'Idioma', name:'Nome', uid:'UID', phone:'Telefone',
+    withdraw:'Saque pendente', percent:'Percentual do Depósito', deposit:'Valor do Depósito', total:'Total do Saque',
+    start:'Data inicial', end:'Data final', submit:'Enviar', currency:'BRL',
     nextTitle:'Informações de Depósito', processSteps:['Processando avaliação de crédito...','Verificando histórico de transações...','Confirmando segurança do banco...','Avaliação de crédito concluída: pronto para depósito'],
-    processDetail:'Aguarde, estamos verificando a segurança do pagamento.', back:'Voltar ao formulário', pdf:'Gerar PDF / Imprimir', alert:'Por favor, preencha todos os campos obrigatórios',
+    processDetail:'Aguarde, estamos verificando a segurança do pagamento.',
+    back:'Voltar ao formulário', pdf:'Gerar PDF / Imprimir', alert:'Por favor, preencha todos os campos obrigatórios',
     shortDesc:'O valor do depósito deve estar de acordo com o contrato. O sistema irá validar o valor.',
+    depositNotice: 'O depósito é cobrado em {percent}% do valor pendente de saque para controle de risco e revisão do canal',
     terms:['Natureza do depósito: Garante que a Parte B cumpra obrigações financeiras e de reembolso','Escopo de uso: Usado para reembolsos, cobrir diferenças financeiras, perdas de usuários etc.','Mecanismo de reposição: Se usado, Parte B deve repor dentro do prazo especificado','Mecanismo de devolução: Valor restante devolvido sem juros após término da cooperação','Lei aplicável e resolução de conflitos: Regido pelas leis do país onde o membro VIP reside; disputas são primeiro negociadas e depois submetidas à arbitragem']
   },
-  cl:{ title:'Completar información', lang:'Idioma', name:'Nombre', uid:'UID', phone:'Teléfono',
-    start:'Fecha inicio', end:'Fecha término', deposit:'Monto del Depósito', submit:'Enviar', currency:'CLP',
+  cl:{ 
+    title:'Completar información', lang:'Idioma', name:'Nombre', uid:'UID', phone:'Teléfono',
+    withdraw:'Monto pendiente', percent:'Porcentaje de depósito', deposit:'Monto del Depósito', total:'Monto Total',
+    start:'Fecha inicio', end:'Fecha término', submit:'Enviar', currency:'CLP',
     nextTitle:'Información de Depósito', processSteps:['Procesando evaluación de crédito...','Verificando registros de transacción...','Confirmando nivel de seguridad del banco...','Evaluación de crédito completa: listo para depósito'],
-    processDetail:'Espere, estamos verificando la seguridad de su pago.', back:'Volver al formulario', pdf:'Generar PDF / Imprimir', alert:'Por favor complete todos los campos obligatorios',
+    processDetail:'Espere, estamos verificando la seguridad de su pago.',
+    back:'Volver al formulario', pdf:'Generar PDF / Imprimir', alert:'Por favor complete todos los campos obligatorios',
     shortDesc:'El monto del depósito debe cumplir con el contrato. El sistema validará el monto.',
+    depositNotice: 'El depósito se cobra al {percent}% del monto pendiente de retiro para control de riesgo y revisión del canal',
     terms:['Naturaleza del depósito: Asegura que la Parte B cumpla obligaciones financieras y de reembolso','Uso: Para reembolsos, cubrir diferencias financieras, pérdidas de usuarios, etc.','Mecanismo de reposición: Si se utiliza, La Parte B debe reponer en el plazo indicado','Mecanismo de devolución: El depósito restante se devuelve sin intereses al finalizar la cooperación','Ley aplicable y resolución de controversias: Regido por las leyes del país donde reside el miembro VIP; las disputas se negocian primero y luego se someten a arbitraje']
   }
 };
@@ -147,10 +184,14 @@ const elements={
   nameLabel:document.getElementById('nameLabel'), uidLabel:document.getElementById('uidLabel'),
   phoneLabel:document.getElementById('phoneLabel'), startDateLabel:document.getElementById('startDateLabel'),
   endDateLabel:document.getElementById('endDateLabel'), depositLabel:document.getElementById('depositLabel'),
+  withdrawLabel:document.getElementById('withdrawLabel'), percentLabel:document.getElementById('percentLabel'),
+  totalLabel:document.getElementById('totalLabel'),
   submitBtn:document.getElementById('submitBtn'), languageSelect:document.getElementById('languageSelect'),
   nameInput:document.getElementById('nameInput'), uidInput:document.getElementById('uidInput'),
   phoneInput:document.getElementById('phoneInput'), startDate:document.getElementById('startDate'),
   endDate:document.getElementById('endDate'), depositInput:document.getElementById('depositInput'),
+  withdrawInput:document.getElementById('withdrawInput'), percentInput:document.getElementById('percentInput'),
+  totalInput:document.getElementById('totalInput'),
   pageForm:document.getElementById('pageForm'), pageNext:document.getElementById('pageNext'),
   nextTitle:document.getElementById('nextTitle'), nextShortDesc:document.getElementById('nextShortDesc'),
   infoText:document.getElementById('infoText'), termsList:document.getElementById('termsList'),
@@ -172,6 +213,7 @@ function formatCurrency(amount, lang){
     return `${currency} ${formattedNumber}`;
 }
 
+// 应用语言
 function applyLang(lang){
   const t = langTexts[lang];
   elements.titleText.textContent = t.title;
@@ -179,9 +221,12 @@ function applyLang(lang){
   elements.nameLabel.textContent = t.name;
   elements.uidLabel.textContent = t.uid;
   elements.phoneLabel.textContent = t.phone;
+  elements.withdrawLabel.textContent = t.withdraw;
+  elements.percentLabel.textContent = t.percent;
+  elements.depositLabel.textContent = t.deposit + ' (' + t.currency + ')';
+  elements.totalLabel.textContent = t.total + ' (' + t.currency + ')';
   elements.startDateLabel.textContent = t.start;
   elements.endDateLabel.textContent = t.end;
-  elements.depositLabel.textContent = t.deposit + ' (' + t.currency + ')';
   elements.submitBtn.textContent = t.submit;
   elements.shortDesc.textContent = t.shortDesc;
 
@@ -196,32 +241,40 @@ function applyLang(lang){
   elements.nextShortDesc.textContent = t.shortDesc;
   elements.backBtn.textContent = t.back;
   elements.pdfBtn.textContent = t.pdf;
+  updateCalculation();
 }
-elements.languageSelect.addEventListener('change', e=>{
-    applyLang(e.target.value);
-    if(localStorage.getItem('depositForm')){
-        const data = JSON.parse(localStorage.getItem('depositForm'));
-        data.lang = e.target.value;
-        displayNextPage(data);
-    }
-});
-applyLang('zh');
+
+// 计算保证金和总提款
+function updateCalculation(){
+  const lang = elements.languageSelect.value;
+  const withdraw = Number(elements.withdrawInput.value) || 0;
+  const percent = Number(elements.percentInput.value) || 0;
+  const deposit = withdraw * percent / 100;
+  const total = withdraw + deposit;
+  elements.depositInput.value = deposit.toFixed(2);
+  elements.totalInput.value = total.toFixed(2);
+  elements.depositNoticeText = langTexts[lang].depositNotice.replace('{percent}', percent);
+}
+
+// 事件绑定
+elements.withdrawInput.addEventListener('input', updateCalculation);
+elements.percentInput.addEventListener('input', updateCalculation);
 
 // 提交表单
 elements.submitBtn.addEventListener('click', ()=>{
   const t = langTexts[elements.languageSelect.value];
-  if(!elements.nameInput.value||!elements.uidInput.value||!elements.phoneInput.value||!elements.startDate.value||!elements.endDate.value){
+  if(!elements.nameInput.value||!elements.uidInput.value||!elements.phoneInput.value||!elements.startDate.value||!elements.endDate.value||!elements.withdrawInput.value){
     alert(t.alert); return;
-  }
-  if(!elements.depositInput.value || isNaN(elements.depositInput.value) || Number(elements.depositInput.value)<=0){
-    alert(t.alert + '（保证金金额需大于0）'); return;
   }
   const start=new Date(elements.startDate.value);
   const end=new Date(elements.endDate.value);
   if(start > end){ alert('开始日期不能晚于截止日期'); return; }
 
-  const data={ name:elements.nameInput.value, uid:elements.uidInput.value, phone:elements.phoneInput.value,
-    start:elements.startDate.value, end:elements.endDate.value, amount:elements.depositInput.value,
+  const data={ 
+    name:elements.nameInput.value, uid:elements.uidInput.value, phone:elements.phoneInput.value,
+    start:elements.startDate.value, end:elements.endDate.value, 
+    withdraw:elements.withdrawInput.value, percent:elements.percentInput.value,
+    deposit:elements.depositInput.value, total:elements.totalInput.value,
     lang:elements.languageSelect.value
   };
   localStorage.setItem('depositForm', JSON.stringify(data));
@@ -233,13 +286,20 @@ elements.submitBtn.addEventListener('click', ()=>{
 // 第二页显示信息
 function displayNextPage(data){
     const t = langTexts[data.lang];
+    const formattedWithdraw = formatCurrency(Number(data.withdraw), data.lang);
+    const formattedDeposit = formatCurrency(Number(data.deposit), data.lang);
+    const formattedTotal = formatCurrency(Number(data.total), data.lang);
+
     elements.infoText.innerHTML = 
         `<strong>${t.name}:</strong> ${data.name}<br>
          <strong>${t.uid}:</strong> ${data.uid}<br>
          <strong>${t.phone}:</strong> ${data.phone}<br>
          <strong>${t.start}:</strong> ${data.start}<br>
          <strong>${t.end}:</strong> ${data.end}<br>
-         <strong>${t.deposit}:</strong> ${formatCurrency(Number(data.amount), data.lang)}`;
+         <strong>${t.withdraw}:</strong> ${formattedWithdraw}<br>
+         <strong>${t.deposit}:</strong> ${formattedDeposit}<br>
+         <strong>${t.total}:</strong> ${formattedTotal}<br>
+         <em>${t.depositNotice.replace('{percent}', data.percent)}</em>`;
 
     elements.nextTermsList.innerHTML='';
     t.terms.forEach(term=>{
@@ -276,7 +336,10 @@ elements.backBtn.addEventListener('click', ()=>{
     elements.phoneInput.value=data.phone;
     elements.startDate.value=data.start;
     elements.endDate.value=data.end;
-    elements.depositInput.value=data.amount;
+    elements.withdrawInput.value=data.withdraw;
+    elements.percentInput.value=data.percent;
+    elements.depositInput.value=data.deposit;
+    elements.totalInput.value=data.total;
     elements.languageSelect.value=data.lang;
     applyLang(data.lang);
   }
@@ -297,6 +360,16 @@ elements.pdfBtn.addEventListener('click', ()=>{
   });
 });
 
+// 语言切换
+elements.languageSelect.addEventListener('change', e=>{
+    applyLang(e.target.value);
+    if(localStorage.getItem('depositForm')){
+        const data=JSON.parse(localStorage.getItem('depositForm'));
+        data.lang=e.target.value;
+        displayNextPage(data);
+    }
+});
+
 // 自动恢复
 window.addEventListener('load', ()=>{
   if(localStorage.getItem('depositForm')){
@@ -306,7 +379,10 @@ window.addEventListener('load', ()=>{
     elements.phoneInput.value=data.phone;
     elements.startDate.value=data.start;
     elements.endDate.value=data.end;
-    elements.depositInput.value=data.amount;
+    elements.withdrawInput.value=data.withdraw;
+    elements.percentInput.value=data.percent;
+    elements.depositInput.value=data.deposit;
+    elements.totalInput.value=data.total;
     elements.languageSelect.value=data.lang;
     applyLang(data.lang);
   }
