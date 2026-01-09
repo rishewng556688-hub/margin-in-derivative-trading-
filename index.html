@@ -201,8 +201,8 @@ function formatCurrency(amount, lang){
   const currency = currencyMap[lang] || 'USD';
   const locale = localeMap[lang] || 'en-US';
   const formattedNumber = new Intl.NumberFormat(locale, {
-    minimumFractionDigits:2,
-    maximumFractionDigits:2
+    minimumFractionDigits:0,
+    maximumFractionDigits:0
   }).format(amount);
   return `${currency} ${formattedNumber}`;
 }
@@ -387,4 +387,5 @@ window.addEventListener('load', ()=>{
 </script>
 </body>
 </html>
+
 
