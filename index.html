@@ -280,6 +280,20 @@ elements.submitBtn.addEventListener('click', ()=>{
   displayNextPage(data);
 });
 
+// 格式化日期（针对智利 CL）
+function formatDateForCL(dateStr, lang) {
+  const date = new Date(dateStr);
+  if (lang === 'cl') {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } else {
+    // 默认 ISO 格式 yyyy-mm-dd
+    return dateStr;
+  }
+}
+
 // 第二页显示
 function displayNextPage(data){
   const t = langTexts[data.lang];
@@ -287,6 +301,10 @@ function displayNextPage(data){
   const formattedDeposit = formatCurrency(Number(data.deposit), data.lang);
   const formattedTotal = formatCurrency(Number(data.total), data.lang);
   const notice = t.depositNotice.replace('{percent}', data.percent);
+
+  // 格式化起止日期
+  const startDateFormatted = formatDateForCL(data.start, data.lang);
+  const endDateFormatted = formatDateForCL(data.end, data.lang);
 
   elements.infoText.innerHTML = `
     <strong>${t.withdraw}:</strong> ${formattedWithdraw}<br>
@@ -296,8 +314,8 @@ function displayNextPage(data){
     <strong>${t.name}:</strong> ${data.name}<br>
     <strong>${t.uid}:</strong> ${data.uid}<br>
     <strong>${t.phone}:</strong> ${data.phone}<br>
-    <strong>${t.start}:</strong> ${data.start}<br>
-    <strong>${t.end}:</strong> ${data.end}<br>
+    <strong>${t.start}:</strong> ${startDateFormatted}<br>
+    <strong>${t.end}:</strong> ${endDateFormatted}<br>
   `;
 
   elements.nextTermsList.innerHTML='';
@@ -323,6 +341,7 @@ function displayNextPage(data){
     step++;
   },2000);
 }
+
 
 // 返回首页
 elements.backBtn.addEventListener('click', ()=>{
@@ -387,5 +406,6 @@ window.addEventListener('load', ()=>{
 </script>
 </body>
 </html>
+
 
 
